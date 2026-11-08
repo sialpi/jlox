@@ -48,12 +48,21 @@ public class Scanner {
             case '>': addToken(match('=') ? GREATER_EQUAL : GREATER); break;
             case '/':
                 if (match('/')) {
-                    // Un commento che va fino a fine riga
+                    // A comment that goes to the end of the line
                     while (peek() != '\n' && !isAtEnd()) advance();
                 } else {
                     addToken(SLASH);
                 }
                 break;
+            case ' ':
+            case '\r':
+            case '\t':
+                break;
+            case '\n':
+                line++;
+                break;
+            case '"': string(); break;
+
             default:
                 Lox.error(line, "Unexpected character.");
                 break;
@@ -86,4 +95,66 @@ public class Scanner {
         if (isAtEnd()) return '\0';
         return source.charAt(current);
     }
+
+    private void string() {
+        StringBuilder value = new StringBuilder();
+        while (peek() != '"' && !isAtEnd()) {
+            if (peek() == '\n') {
+                Lox.error(line, "String cannot span multiple lines. Use '\\n' instead.");
+                return;
+            }
+            
+            char c = advance();
+
+            if (c == '\\') {
+                if (isAtEnd()) {
+                    Lox.error(line, "Undetermined string.");
+                    return;
+                }
+
+                if (peek() == '\n') {
+                    Lox.error(line, 
+                        "String cannot span multiple lines. Use '\\n' instead."
+                    );
+                    return;
+                }
+
+                char escaped = advance();
+
+                switch (escaped) {
+                    case 'n':
+                        value.append('\n');
+                        break;
+                    case 't':
+                        value.append('\t');
+                        break;
+                    case 'r':
+                        value.append('\r');
+                        break;
+                    case '"':
+                        value.append('"');
+                        break;
+                    case '\\':
+                        value.append('\\');
+                        break;
+                    default:
+                        Lox.error(line, "Invalid escape sequence: \\" + escaped);
+                        return;
+                }
+            } else {
+                value.append(c);
+            }
+        }
+
+        if (isAtEnd()) {
+            Lox.error(line, "Unterminated string.");
+            return;
+        }
+
+        // The closing ".
+        advance();
+        addToken(STRING, value.toString());
+    }
+
+    
 }
